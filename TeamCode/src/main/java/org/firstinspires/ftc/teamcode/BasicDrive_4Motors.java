@@ -34,8 +34,8 @@ public class BasicDrive_4Motors extends OpMode
         // Set the motor spin directions
         motorDriveRightFront.setDirection(DcMotor.Direction.FORWARD);
         motorDriveRightBack.setDirection(DcMotor.Direction.FORWARD);
-        motorDriveLeftFront.setDirection(DcMotor.Direction.FORWARD);
-        motorDriveLeftBack.setDirection(DcMotor.Direction.FORWARD);
+        motorDriveLeftFront.setDirection(DcMotor.Direction.REVERSE);
+        motorDriveLeftBack.setDirection(DcMotor.Direction.REVERSE);
 
         // Update the status on the driver station
         telemetry.addData("Status", "Initialized");
@@ -60,10 +60,14 @@ public class BasicDrive_4Motors extends OpMode
         leftDrive = -gamepad1.left_stick_y;
         rightDrive = -gamepad1.right_stick_y;
 
+        /*
         motorDriveLeftFront.setPower(leftDrive);
         motorDriveLeftBack.setPower(leftDrive);
         motorDriveRightFront.setPower(rightDrive);
         motorDriveRightBack.setPower(rightDrive);
+        */
+
+        MecanumFrontDriveRight(1.0);
 
         telemetry.addData("Status", "Run Time: " + runTime.toString());
         telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftDrive, rightDrive);
@@ -76,6 +80,15 @@ public class BasicDrive_4Motors extends OpMode
         motorDriveLeftBack.setPower(0);
         motorDriveRightFront.setPower(0);
         motorDriveRightBack.setPower(0);
+    }
+
+    private void MecanumFrontDriveRight(double power) {
+        motorDriveRightFront.setPower(-power);
+        motorDriveLeftFront.setPower(power);
+    }
+
+    private void MecanumDriveLinear(double percentX, double percentY) {
+
     }
 
 }
