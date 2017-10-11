@@ -5,7 +5,10 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
+import static java.lang.Math.abs;
 
 /**
  * Created by Michael on 9/16/2017.
@@ -19,6 +22,14 @@ public class BasicDrive_4Motors extends OpMode
     private DcMotor motorDriveRightFront = null, motorDriveRightBack = null;
     private DcMotor motorDriveLeftFront = null, motorDriveLeftBack = null;
 
+    private Servo leftGripServo, rightGripServo;
+
+    // Speed modifiers
+    private double turnMod = 1.0;
+    private double speedMod = 1.0;
+
+    // Saved button states
+    private boolean lastDriveAState = false;
 
     // Initialize the robot when the init button is hit
     @Override
@@ -31,11 +42,16 @@ public class BasicDrive_4Motors extends OpMode
         motorDriveLeftFront = hardwareMap.get(DcMotor.class, "driveLeftFront");
         motorDriveLeftBack = hardwareMap.get(DcMotor.class, "driveLeftBack");
 
+        leftGripServo = hardwareMap.get(Servo.class, "leftGrab");
+        rightGripServo = hardwareMap.get(Servo.class, "rightGrab");
+
+
         // Set the motor spin directions
-        motorDriveRightFront.setDirection(DcMotor.Direction.FORWARD);
-        motorDriveRightBack.setDirection(DcMotor.Direction.FORWARD);
-        motorDriveLeftFront.setDirection(DcMotor.Direction.REVERSE);
-        motorDriveLeftBack.setDirection(DcMotor.Direction.REVERSE);
+        motorDriveRightFront.setDirection(DcMotor.Direction.REVERSE);
+        motorDriveRightBack.setDirection(DcMotor.Direction.REVERSE);
+        motorDriveLeftFront.setDirection(DcMotor.Direction.FORWARD);
+        motorDriveLeftBack.setDirection(DcMotor.Direction.FORWARD
+        );
 
         // Update the status on the driver station
         telemetry.addData("Status", "Initialized");
@@ -54,11 +70,11 @@ public class BasicDrive_4Motors extends OpMode
     // Loop to run after play is hit and before stop
     @Override
     public void loop() {
-        double leftDrive;
-        double rightDrive;
+        //double leftDrive;
+        //double rightDrive;
 
-        leftDrive = -gamepad1.left_stick_y;
-        rightDrive = -gamepad1.right_stick_y;
+        //leftDrive = -gamepad1.left_stick_y;
+        //rightDrive = -gamepad1.right_stick_y;
 
         /*
         motorDriveLeftFront.setPower(leftDrive);
@@ -67,10 +83,16 @@ public class BasicDrive_4Motors extends OpMode
         motorDriveRightBack.setPower(rightDrive);
         */
 
-        MecanumFrontDriveRight(1.0);
+        MecanumDrive(gamepad1.left_stick_x, -gamepad1.left_stick_y, gamepad1.right_stick_x);
+
+        boolean driveAState = gamepad1.a;
+        if (driveAState != lastDriveAState) {
+            lastDriveAState = driveAState;
+            openCloseBlockGripper(driveAState);
+        }
 
         telemetry.addData("Status", "Run Time: " + runTime.toString());
-        telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftDrive, rightDrive);
+        telemetry.update();
     }
 
     // Runs once after the stop button is hit
@@ -82,13 +104,27 @@ public class BasicDrive_4Motors extends OpMode
         motorDriveRightBack.setPower(0);
     }
 
-    private void MecanumFrontDriveRight(double power) {
-        motorDriveRightFront.setPower(-power);
-        motorDriveLeftFront.setPower(power);
+    private void MecanumDrive(double leftX, double leftY, double rightX) {
+        rightX *= turnMod;
+        double r = Math.hypot(leftX, leftY);
+        double robotAngle = Math.atan2(leftY, leftX) - Math.PI / 4;
+
+        telemetry.addData("Motors", "leftX (%.2f), leftY (%.2f), rightX (%.2f)", leftX, leftY, rightX);
+
+        final double v1 = r * Math.cos(robotAngle) + rightX;
+        final double v2 = r * Math.sin(robotAngle) - rightX;
+        final double v3 = r * Math.sin(robotAngle) + rightX;
+        final double v4 = r * Math.cos(robotAngle) - rightX;
+
+        motorDriveLeftFront.setPower(v1 * speedMod);
+        motorDriveRightFront.setPower(v2 * speedMod);
+        motorDriveLeftBack.setPower(v3 * speedMod);
+        motorDriveRightBack.setPower(v4 * speedMod);
     }
 
-    private void MecanumDriveLinear(double percentX, double percentY) {
-
+    private void openCloseBlockGripper(boolean closed) {
+        leftGripServo.setPosition(0.5);
+        rightGripServo.setPosition(0.5);
     }
 
 }
