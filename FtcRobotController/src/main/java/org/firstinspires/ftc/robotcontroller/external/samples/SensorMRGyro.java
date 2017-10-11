@@ -65,6 +65,7 @@ public class SensorMRGyro extends LinearOpMode {
   IntegratingGyroscope gyro;
   ModernRoboticsI2cGyro modernRoboticsI2cGyro;
 
+
   // A timer helps provide feedback while calibration is taking place
   ElapsedTime timer = new ElapsedTime();
 
@@ -76,7 +77,7 @@ public class SensorMRGyro extends LinearOpMode {
 
     // Get a reference to a Modern Robotics gyro object. We use several interfaces
     // on this object to illustrate which interfaces support which functionality.
-    modernRoboticsI2cGyro = hardwareMap.get(ModernRoboticsI2cGyro.class, "gyro");
+    modernRoboticsI2cGyro = hardwareMap.get(ModernRoboticsI2cGyro.class, "navx");
     gyro = (IntegratingGyroscope)modernRoboticsI2cGyro;
     // If you're only interested int the IntegratingGyroscope interface, the following will suffice.
     // gyro = hardwareMap.get(IntegratingGyroscope.class, "gyro");
