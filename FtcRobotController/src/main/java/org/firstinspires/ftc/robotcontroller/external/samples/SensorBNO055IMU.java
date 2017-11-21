@@ -131,6 +131,7 @@ public class SensorBNO055IMU extends LinearOpMode
                     return imu.getSystemStatus().toShortString();
                     }
                 })
+
             .addData("calib", new Func<String>() {
                 @Override public String value() {
                     return imu.getCalibrationStatus().toString();

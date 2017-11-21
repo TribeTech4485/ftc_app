@@ -5,4 +5,7 @@ package org.firstinspires.ftc.teamcode.PID;
  */
 
 public class SPID {
+    public double dState = 0, iState = 0, iMax, iMin;
+
+    public double iGain, pGain, dGain;
 }
