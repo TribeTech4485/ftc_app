@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode;
+package org.firstinspires.ftc.teamcode.SystemControl;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.SystemControl.HardwareController;
  * Created by Michael on 11/21/2017.
  */
 
-@TeleOp(name="Drive4Motors")
+@TeleOp(name="DriveTele")
 public class Drive4Motors extends OpMode {
 
     private HardwareController hwcon;
@@ -56,6 +56,7 @@ public class Drive4Motors extends OpMode {
         hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
 
         double turnAmount = 0.0;
+        /*
         // If we are turning with the drive controller
         if (drivePad.right_stick_x > 0.01) {
             turnAmount = drivePad.right_stick_x;
@@ -68,14 +69,18 @@ public class Drive4Motors extends OpMode {
             if (turnStartTime >= 0) turnDuration = System.currentTimeMillis() - turnStartTime;
             if (turnDuration >= turnWait) { // If the delay is over
                 if (!yawZeroedSinceLastTurn) {  // If the yaw hasn't been zeroed since the last time we turned
-                    hwcon.setZeroedHeading();   // Zero the yaw
+                    //hwcon.setZeroedHeading();   // Zero the yaw
                     yawZeroedSinceLastTurn = true;  // Don't zero the yaw until next turn
                 }
                 //turnAmount = hwcon.getTurnPID(0);   // Turn to 0 degrees (say in the same orientation)
             }
-        }
+        }*/
         hwcon.MecanumDrive(drivePad.left_stick_x, drivePad.left_stick_y, turnAmount);
 
+        /* TODO: NullPointerException Somewhere in loop()
+        *  TODO: Check hwcon for errors in function calls
+         */
+        // TODO: This is likely the issue
         hwcon.updateSensorsAndTelmetry();
     }
 

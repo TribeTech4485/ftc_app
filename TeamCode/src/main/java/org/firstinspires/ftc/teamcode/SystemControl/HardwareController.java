@@ -25,11 +25,17 @@ public class HardwareController {
     // Motors
     private DcMotor motorDriveRightFront = null, motorDriveRightRear = null;    // Right side mecanum motors
     private DcMotor motorDriveLeftFront = null, motorDriveLeftRear = null;      // Left side mecanum motors
+    private DcMotor motorLift = null;   // Lift Motor
     // Servos
+    private double leftOpenPos = 0.70, leftClosedPos = 0.10;
+    private double rightOpenPos = 0.1, rightClosedPos = 0.9;
     private Servo servoGripLeft = null, servoGripRight = null;
+    private double armUpPos = 0.25, armDownPos = 0.84;
+    private Servo servoArm = null;
 
     //Sensors
-    private ColorSensor ballColorSensor;    // Color sensor for balls
+    private ColorSensor ballColorSensorLeft;    // Color sensor for balls
+    private ColorSensor ballColorSensorRight;   // Color sensor for balls
     private BNO055IMU imu;  //Internal Gyro
 
     // GYRO and Turning
@@ -56,10 +62,10 @@ public class HardwareController {
 
     // ENUMS
     public enum InitError {Success, MotorInit, ServoInit, GyroInit};
-    public enum UpdateError {Success};
+    public enum ControlError {Success, Drive, Servo, Gyro, Lift};
 
-    public InitError initErrorStatus;
-    public UpdateError updateErrorStatus;
+    public InitError initErrorStatus = InitError.Success;
+    public ControlError controlErrorStatus = ControlError.Success;
 
 
     public void initHardware(HardwareMap hm, Telemetry tel) {
@@ -69,28 +75,30 @@ public class HardwareController {
         telemetry.addData("Status", "Initializing");
         telemetry.update();
 
-        // Initialize the drive motors
+        // Initialize the motors
         try {
-            motorDriveLeftFront = hardwareMap.get(DcMotor.class, "driveLeftFront");
-            motorDriveLeftRear = hardwareMap.get(DcMotor.class, "driveLeftRear");
-            motorDriveRightFront = hardwareMap.get(DcMotor.class, "driveRightFront");
-            motorDriveRightRear = hardwareMap.get(DcMotor.class, "driveRightRear");
+            motorDriveLeftFront = hardwareMap.get(DcMotor.class, "leftfront");
+            motorDriveLeftRear = hardwareMap.get(DcMotor.class, "leftrear");
+            motorDriveRightFront = hardwareMap.get(DcMotor.class, "rightfront");
+            motorDriveRightRear = hardwareMap.get(DcMotor.class, "rightrear");
             // Set the motor directions
             motorDriveLeftFront.setDirection(DcMotor.Direction.FORWARD);
             motorDriveLeftRear.setDirection(DcMotor.Direction.FORWARD);
             motorDriveRightFront.setDirection(DcMotor.Direction.REVERSE);
             motorDriveRightRear.setDirection(DcMotor.Direction.REVERSE);
+
+            // lift motor
+            motorLift = hardwareMap.get(DcMotor.class, "lift");
         } catch (Exception ex) {
-            // TODO: Error flag or something
             initErrorStatus = InitError.MotorInit;
         }
 
         // Initialize the servos
         try {
-            servoGripLeft = hardwareMap.get(Servo.class, "leftGrab");
-            servoGripRight = hardwareMap.get(Servo.class, "rightGrab");
+            servoGripLeft = hardwareMap.get(Servo.class, "leftgrab");
+            servoGripRight = hardwareMap.get(Servo.class, "rightgrab");
+            servoArm = hardwareMap.get(Servo.class, "ballarm");
         } catch (Exception ex) {
-            // TODO: Error flag or something
             initErrorStatus = InitError.ServoInit;
         }
 
@@ -109,7 +117,6 @@ public class HardwareController {
             imu = hardwareMap.get(BNO055IMU.class, "imu");
             imu.initialize(parameters);
         } catch (Exception ex) {
-            // TODO: Error flag or something
             initErrorStatus = InitError.GyroInit;
         }
 
@@ -123,7 +130,104 @@ public class HardwareController {
         spid.dGain = 002375;
         pid.setSPID(spid);
 
-        telemetry.addData("Status", ("Initialized, Error Code: " + initErrorStatus.toString()));
+        telemetry.addData("Status", "Initialized, Error Code: " + initErrorStatus.toString());
         telemetry.update();
     }
+
+    public void updateSensorsAndTelmetry() {
+        updateGYROValues();
+        addErrorTelemetry();
+        updateTelemetry();
+    }
+    private void addErrorTelemetry() {
+        telemetry.addData("Init Status Code", initErrorStatus.toString());
+        telemetry.addData("Control Status Code", controlErrorStatus.toString());
+    }
+    private void updateTelemetry() { telemetry.update();}
+
+
+    ////// Control motors and servos
+    // Mecanum drive
+    public void MecanumDrive(double x, double y, double turn) {
+        turn *= turnMod;
+        double r = Math.hypot(x,y);
+        double robotAngle = Math.atan2(y,x) - Math.PI / 4;
+
+        final double v1 = r * Math.cos(robotAngle) + turn;
+        final double v2 = r * Math.sin(robotAngle) - turn;
+        final double v3 = r * Math.sin(robotAngle) + turn;
+        final double v4 = r * Math.cos(robotAngle) - turn;
+
+        try {
+            motorDriveLeftFront.setPower(v1 * speedMod);
+            motorDriveRightFront.setPower(v2 * speedMod);
+            motorDriveLeftRear.setPower(v3 * speedMod);
+            motorDriveRightRear.setPower(v4 * speedMod);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Drive;
+        }
+    }
+    public void controlLift(double power) {
+        try {
+            motorLift.setPower(power);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Lift;
+        }
+    }
+
+    // Gripper Servos
+    public void openCloseBlockGripper(boolean closed) {
+        if (closed) {
+            controlServo(servoGripLeft, leftOpenPos);
+            controlServo(servoGripRight, rightOpenPos);
+        } else {
+            controlServo(servoGripLeft, leftClosedPos);
+            controlServo(servoGripRight, rightClosedPos);
+        }
+    }
+    // Arm Servo
+    public void raiseLowerArm(boolean down) {
+        if (down) {
+            controlServo(servoArm, armDownPos);
+        } else {
+            controlServo(servoArm, armUpPos);
+        }
+    }
+
+    // Control specified servo and catch any errors
+    private void controlServo(Servo servo, double c) {
+        try {
+            servo.setPosition(c);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Gyro;
+        }
+    }
+
+
+    // Get and set gyro values
+    private void updateGYROValues() {
+        try {
+            angles = imu.getAngularOrientation();
+            heading = angles.firstAngle;
+            roll = angles.secondAngle;
+            pitch = angles.thirdAngle;
+
+            // Calculate adjusted heading
+            adjustedHeading = heading - zeroedHeading;
+
+            telemetry.addData("Heading", heading);
+            telemetry.addData("Adjusted Heading", adjustedHeading);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Gyro;
+        }
+    }
+
+    public double getTurnPID(double target) {
+        double error = target - adjustedHeading;
+        if (Math.abs(error) < 1) return 0;
+        return pid.update(error, adjustedHeading);
+    }
+
+    public void setZeroedHeading() { zeroedHeading = heading; }
 }
+
