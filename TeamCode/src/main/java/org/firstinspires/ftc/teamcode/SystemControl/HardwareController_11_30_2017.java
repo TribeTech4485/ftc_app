@@ -6,10 +6,8 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.sun.tools.javac.code.Attribute;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
@@ -20,7 +18,7 @@ import org.firstinspires.ftc.teamcode.PID.SPID;
  * Created by Michael on 11/17/2017.
  */
 
-public class HardwareController {
+public class HardwareController_11_30_2017 {
     ////// Hardware Objects
     HardwareMap hardwareMap;
     Telemetry telemetry;
