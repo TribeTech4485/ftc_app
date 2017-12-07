@@ -1,13 +1,17 @@
 package org.firstinspires.ftc.teamcode.SystemControl;
 
+import android.graphics.Color;
+
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.I2cAddr;
+import com.qualcomm.robotcore.hardware.I2cDevice;
+import com.qualcomm.robotcore.hardware.I2cDeviceSynch;
+import com.qualcomm.robotcore.hardware.I2cDeviceSynchImpl;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.sun.tools.javac.code.Attribute;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
@@ -27,16 +31,31 @@ public class HardwareController {
     private DcMotor motorDriveLeftFront = null, motorDriveLeftRear = null;      // Left side mecanum motors
     private DcMotor motorLift = null;   // Lift Motor
     // Servos
-    private double leftOpenPos = 0.70, leftClosedPos = 0.10;
-    private double rightOpenPos = 0.1, rightClosedPos = 0.9;
+    private double leftOpenPos = 0.65, leftClosedPos = 0.10;
+    private double rightOpenPos = 0.2, rightClosedPos = 0.75;
     private Servo servoGripLeft = null, servoGripRight = null;
-    private double armUpPos = 0.25, armDownPos = 0.84;
+    private double armUpPos = 0.25, armDownPos = 0.95;//0.84;   // Arm needs to go down more. Try 0.95 instead of 0.84
     private Servo servoArm = null;
+    // Waving
+    private double waveStartTime = -1;
+    private double waveDelay = 250;
 
     //Sensors
-    private ColorSensor ballColorSensorLeft;    // Color sensor for balls
-    private ColorSensor ballColorSensorRight;   // Color sensor for balls
-    private BNO055IMU imu;  //Internal Gyro
+    private ColorSensor ballColorSensorLeft = null;    // Color sensor for balls
+    private ColorSensor ballColorSensorRight = null;   // Color sensor for balls
+    private BNO055IMU imu = null;  //Internal Gyro
+
+    // I2C MRI Range Sensor
+    // Variables for reading over i2c
+    private byte[] rangeCache;  // Cache for reading from the I2C Sensor
+    private I2cAddr rangeAddress = new I2cAddr(0x14);  // Default I2C Address for MR range sensor
+    private static final int rangeRegStart = 0x04;  // Register to start reading
+    private static final int rangeReadLength = 2;   // Number of bytes to read;
+    private I2cDevice range = null;    // Actual sensor device over I2C
+    private I2cDeviceSynch rangeReader = null; // Reader for the I2C device
+    // Sensor Values
+    private double rangeODSValue = -1.0;
+    private double rangeUltraSonicValue = -1.0;
 
     // GYRO and Turning
     private PIDController pid;
@@ -53,16 +72,16 @@ public class HardwareController {
     private double turnWait = 15;   // Wait time for turn in ms
 
     // Speed modifiers
-    private double turnMod = 1.0;
-    private double speedMod = 1.0;
+    private double turnMod = 0.75;
+    private double speedMod = 0.75;
 
     // Saved button states
     private boolean lastDriveAState = false;
 
 
     // ENUMS
-    public enum InitError {Success, MotorInit, ServoInit, GyroInit};
-    public enum ControlError {Success, Drive, Servo, Gyro, Lift};
+    public enum InitError {Success, MotorInit, ServoInit, GyroInit, ColorInit, RangeInit};
+    public enum ControlError {Success, Drive, Servo, Gyro, Lift, Color, Range};
 
     public InitError initErrorStatus = InitError.Success;
     public ControlError controlErrorStatus = ControlError.Success;
@@ -120,14 +139,33 @@ public class HardwareController {
             initErrorStatus = InitError.GyroInit;
         }
 
+        // Setup the Color Sensors
+        try {
+            ballColorSensorLeft = hardwareMap.get(ColorSensor.class, "leftball");
+            ballColorSensorRight = hardwareMap.get(ColorSensor.class, "rightball");
+            ballColorSensorLeft.enableLed(true);
+            ballColorSensorRight.enableLed(true);
+        } catch (Exception ex) {
+            initErrorStatus = InitError.ColorInit;
+        }
+
+        // Setup the Range Sensor on I2C
+        try {
+            //range = hardwareMap.i2cDevice.get("range");
+            //rangeReader = new I2cDeviceSynchImpl(range, rangeAddress, false);
+            //rangeReader.engage();
+        } catch (Exception ex) {
+            initErrorStatus = InitError.RangeInit;
+        }
+
         // Set PID
         pid = new PIDController();
         SPID spid = new SPID();
         spid.iMax = 1.0;
         spid.iMin = -1.0;
-        spid.pGain = 0.0475;
+        spid.pGain = 0.0;
         spid.iGain = 0.0;
-        spid.dGain = 002375;
+        spid.dGain = 0.0;
         pid.setSPID(spid);
 
         telemetry.addData("Status", "Initialized, Error Code: " + initErrorStatus.toString());
@@ -135,7 +173,9 @@ public class HardwareController {
     }
 
     public void updateSensorsAndTelmetry() {
-        updateGYROValues();
+        waveRightGripper();
+        //updateGYROValues();
+        //updateRangeSensor();
         addErrorTelemetry();
         updateTelemetry();
     }
@@ -149,6 +189,10 @@ public class HardwareController {
     ////// Control motors and servos
     // Mecanum drive
     public void MecanumDrive(double x, double y, double turn) {
+        x *= -1;
+        y *= -1;
+        turn *= -1;
+
         turn *= turnMod;
         double r = Math.hypot(x,y);
         double robotAngle = Math.atan2(y,x) - Math.PI / 4;
@@ -169,7 +213,7 @@ public class HardwareController {
     }
     public void controlLift(double power) {
         try {
-            motorLift.setPower(power);
+            motorLift.setPower(-power);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Lift;
         }
@@ -178,12 +222,27 @@ public class HardwareController {
     // Gripper Servos
     public void openCloseBlockGripper(boolean closed) {
         if (closed) {
-            controlServo(servoGripLeft, leftOpenPos);
-            controlServo(servoGripRight, rightOpenPos);
-        } else {
             controlServo(servoGripLeft, leftClosedPos);
             controlServo(servoGripRight, rightClosedPos);
+        } else {
+            controlServo(servoGripLeft, leftOpenPos);
+            controlServo(servoGripRight, rightOpenPos);
         }
+    }
+    public void startRightWave(boolean wave) {
+        if (wave && waveStartTime < 0) waveStartTime = System.currentTimeMillis();
+    }
+    // Gripper right Servo
+    public void waveRightGripper() {
+        if (waveStartTime < 0) return;
+        double duration = System.currentTimeMillis() - waveStartTime;
+        double c = rightClosedPos;
+        if (duration >= 0 && duration < waveDelay * 0.5) c = rightClosedPos;
+        if (duration >= waveDelay) c = rightOpenPos;
+        if (duration >= waveDelay * 2) c = rightClosedPos;
+        if (duration >= waveDelay * 3) c = rightOpenPos;
+        if (duration >= waveDelay * 4) waveStartTime = -1;
+        controlServo(servoGripRight, c);
     }
     // Arm Servo
     public void raiseLowerArm(boolean down) {
@@ -199,7 +258,7 @@ public class HardwareController {
         try {
             servo.setPosition(c);
         } catch (Exception ex) {
-            controlErrorStatus = ControlError.Gyro;
+            controlErrorStatus = ControlError.Servo;
         }
     }
 
@@ -229,5 +288,58 @@ public class HardwareController {
     }
 
     public void setZeroedHeading() { zeroedHeading = heading; }
+
+    // Color Sensors
+    public String getLeftBallColor() { return getBallColor(ballColorSensorLeft); }
+    public String getRightBallColor() { return getBallColor(ballColorSensorRight); }
+
+    private float[] getColorSensorHSV(ColorSensor cs) {
+        float hsvValues[] = {0F, 0F, 0F};
+        int[] sensorRGB = getColorSensorRGB(cs);
+
+        Color.RGBToHSV(sensorRGB[0], sensorRGB[1], sensorRGB[2], hsvValues);
+        return hsvValues;
+    }
+    private int[] getColorSensorRGB(ColorSensor cs) {
+        int rgbValues[] = {0,0,0};
+        try {
+            rgbValues = new int[]{cs.red(), cs.green(), cs.blue()};
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Color;
+        }
+        return rgbValues;
+    }
+    private String getBallColor(ColorSensor cs) {
+        float hue = getColorSensorHSV(cs)[0];
+        int[] rgb = getColorSensorRGB(cs);
+
+        if (rgb[0] > rgb[1] && rgb[0] > rgb[2]) {
+            if (hue > 0 && hue < 10) {
+                return "red";
+            }
+        }
+
+        if (rgb[2] > rgb[0] && rgb[2] > rgb[1]) {
+            if (hue > 200 && hue < 255) {
+                return "blue";
+            }
+        }
+
+        return "none";
+    }
+
+    // Range sensor control
+    private void updateRangeSensor() {
+        try {
+            rangeCache = rangeReader.read(rangeRegStart, rangeReadLength);
+            rangeUltraSonicValue = rangeCache[0] & 0xFF;
+            rangeODSValue = rangeCache[1] & 0xFF;
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Range;
+        }
+    }
+    // Get the values from the sensor
+    public double getRangeUltraSonicValue() { return rangeUltraSonicValue; }
+    public double getRangeODSValue() { return rangeODSValue; }
 }
 
