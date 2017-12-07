@@ -15,13 +15,13 @@ public class Drive4Motors extends OpMode {
 
     private HardwareController hwcon;
     private Gamepad drivePad, controlPad;
-
+    private Gamepad lastControlPad;
 
 
     @Override
     public void init() {
         drivePad = gamepad1;
-        controlPad = gamepad1;
+        controlPad = gamepad2;
         hwcon = new HardwareController();
         hwcon.initHardware(hardwareMap, telemetry);
     }
@@ -40,10 +40,24 @@ public class Drive4Motors extends OpMode {
     private boolean armDown = false;
     private double turnStartTime = -1;
     private double turnDuration = -1;
-    private double turnWait = 500;
+    private double turnWait = 80;
     private boolean yawZeroedSinceLastTurn = true;
+
+
+    private double lastLoopTime = -1;
     @Override
     public void loop() {
+
+        double loopStart = System.currentTimeMillis();
+
+        if (drivePad.start) {
+            if (controlPad != drivePad) {
+                lastControlPad = controlPad;
+                controlPad = drivePad;
+            }
+        } else if (drivePad.back) {
+            controlPad = lastControlPad;
+        }
 
         if (controlPad.a) gripperClosed = true;
         else if (controlPad.b) gripperClosed = false;
@@ -53,35 +67,43 @@ public class Drive4Motors extends OpMode {
         else if (controlPad.right_bumper) armDown = true;
         hwcon.raiseLowerArm(armDown);
 
+        hwcon.startRightWave(controlPad.dpad_right);
+
         hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
 
         double turnAmount = 0.0;
         /*
-        // If we are turning with the drive controller
-        if (drivePad.right_stick_x > 0.01) {
+        if (turnStartTime > -1) {
+            turnDuration = System.currentTimeMillis() - turnStartTime;
+        }
+        if (Math.abs(drivePad.right_stick_x) <= 0.01) {
+            if (turnStartTime < 0) turnStartTime = System.currentTimeMillis();
+            if (turnDuration >= turnWait) turnAmount = hwcon.getTurnPID(0);
+            //turnAmount = turnToAngleGetTurn(0);
+            //turnAmount = getTurnPID(0);
+        }
+        else {
             turnAmount = drivePad.right_stick_x;
-            turnStartTime = System.currentTimeMillis();
-            turnDuration = -1;
-            yawZeroedSinceLastTurn = false;
-        } else {
-            // If we are not turning with the drive controller
-            // Check how long it has been
-            if (turnStartTime >= 0) turnDuration = System.currentTimeMillis() - turnStartTime;
-            if (turnDuration >= turnWait) { // If the delay is over
-                if (!yawZeroedSinceLastTurn) {  // If the yaw hasn't been zeroed since the last time we turned
-                    //hwcon.setZeroedHeading();   // Zero the yaw
-                    yawZeroedSinceLastTurn = true;  // Don't zero the yaw until next turn
-                }
-                //turnAmount = hwcon.getTurnPID(0);   // Turn to 0 degrees (say in the same orientation)
-            }
+            hwcon.setZeroedHeading();
+            turnStartTime = -1;
         }*/
+        turnAmount = drivePad.right_stick_x;
+
+        telemetry.addData("Turn Amount", turnAmount);
         hwcon.MecanumDrive(drivePad.left_stick_x, drivePad.left_stick_y, turnAmount);
 
-        /* TODO: NullPointerException Somewhere in loop()
-        *  TODO: Check hwcon for errors in function calls
-         */
-        // TODO: This is likely the issue
+        //telemetry.addData("Right Ball", hwcon.getRightBallColor());
+        //telemetry.addData("Left Ball", hwcon.getLeftBallColor());
+
+        telemetry.addData("Last Loop Time", lastLoopTime);
+
+        //telemetry.addData("Ultra Sonic", hwcon.getRangeUltraSonicValue());
+        //telemetry.addData("ODS", hwcon.getRangeODSValue());
+
+        // Update the sensors and the telemetry in the hardware controller
         hwcon.updateSensorsAndTelmetry();
+
+        lastLoopTime = System.currentTimeMillis() - loopStart;
     }
 
     @Override
