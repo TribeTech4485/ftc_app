@@ -6,14 +6,17 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.I2cDevice;
 import com.qualcomm.robotcore.hardware.I2cDeviceSynch;
-import com.qualcomm.robotcore.hardware.I2cDeviceSynchImpl;
+import com.qualcomm.robotcore.hardware.OpticalDistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.teamcode.PID.PIDController;
 import org.firstinspires.ftc.teamcode.PID.SPID;
@@ -22,6 +25,9 @@ import org.firstinspires.ftc.teamcode.PID.SPID;
  * Created by Michael on 11/17/2017.
  */
 
+/*
+ * TODO: Tune PID!!!
+ */
 public class HardwareController {
     ////// Hardware Objects
     HardwareMap hardwareMap;
@@ -29,10 +35,17 @@ public class HardwareController {
     // Motors
     private DcMotor motorDriveRightFront = null, motorDriveRightRear = null;    // Right side mecanum motors
     private DcMotor motorDriveLeftFront = null, motorDriveLeftRear = null;      // Left side mecanum motors
-    private DcMotor motorLift = null;   // Lift Motor
+    private DcMotor motorDriveStrafe = null;    // Motor for strafing
+    private DcMotor motorLiftInterior = null, motorLiftExterior = null;         // Lift motors
+    private boolean useInteriorLiftMotor = false;   // Do we move the lift with the interior motor or the exterior?
+    // Distance Measurement Values
+    private static final double driveEncoderTicksPerRotation = 1120;    // 1120 for the Neverest 40 ???
+    private static final double driveWheelDiameterInches = 4;   // Diameter of the wheels
+
     // Servos
     private double leftOpenPos = 0.65, leftClosedPos = 0.10;
     private double rightOpenPos = 0.2, rightClosedPos = 0.75;
+    private double rightGripPos = rightOpenPos, leftGripPos = leftOpenPos;
     private Servo servoGripLeft = null, servoGripRight = null;
     private double armUpPos = 0.25, armDownPos = 0.95;//0.84;   // Arm needs to go down more. Try 0.95 instead of 0.84
     private Servo servoArm = null;
@@ -44,6 +57,17 @@ public class HardwareController {
     private ColorSensor ballColorSensorLeft = null;    // Color sensor for balls
     private ColorSensor ballColorSensorRight = null;   // Color sensor for balls
     private BNO055IMU imu = null;  //Internal Gyro
+
+    // Lift Limit Switch Sensors
+    private DigitalChannel liftIntUpLs, liftIntDownLs;  // Interior lift limit switches (up, down)
+    private DigitalChannel liftExtUpLs, liftExtDownLs;  // Exterior lift limit switches (up, down)
+    // Lift position values
+    private boolean liftIntUpState = false, liftIntDownState = false;   // Interior lift position states
+    private boolean liftExtUpState = false, liftExtDownState = false;   // Exterior lift position states
+
+    private OpticalDistanceSensor leftOpticalDistance = null, rightOpticalDistance = null;   // Optical Distance Sensors on the left and right grippers
+    // ODS values
+    private double leftODSDetected = 0.0, rightODSDetected = 0.0;   // Left and right distance from the left and right ODSs
 
     // I2C MRI Range Sensor
     // Variables for reading over i2c
@@ -65,6 +89,14 @@ public class HardwareController {
     private double heading = 0.0;
     private double roll = 0.0;
     private double pitch = 0.0;
+    private Acceleration acceleration;
+
+    // Distance
+    private double rightFrontWheelDistance = 0, rightRearWheelDistance = 0;
+    private double leftFrontWheelDistance = 0, leftRearWheelDistance = 0;
+    private double avgLeftDistance = 0, avgRightDistance = 0;
+    private double avgTotalDistance = 0;
+
 
     // Time from last turn (We need some latency because the motors don't stop right when the joystick is released)
     private double turnStartTime = -1;
@@ -72,16 +104,24 @@ public class HardwareController {
     private double turnWait = 15;   // Wait time for turn in ms
 
     // Speed modifiers
-    private double turnMod = 0.75;
+    private double turnMod = -0.75;
     private double speedMod = 0.75;
+    private double omniXMod = -1;
+    private double omniYMod = -1;
+    private double omniStrafeMod = 0.75;
+    private double mecanumXMod = -1;
+    private double mecanumYMod = -1;
+
+    // Lift speed modifier
+    private double liftMod = -1;
 
     // Saved button states
     private boolean lastDriveAState = false;
 
 
     // ENUMS
-    public enum InitError {Success, MotorInit, ServoInit, GyroInit, ColorInit, RangeInit};
-    public enum ControlError {Success, Drive, Servo, Gyro, Lift, Color, Range};
+    public enum InitError {Success, MotorInit, ServoInit, GyroInit, ColorInit, RangeInit, ODS, LimitSwitches};
+    public enum ControlError {Success, Drive, Servo, Gyro, Lift, Color, Range, ODS, LimitSwitches};
 
     public InitError initErrorStatus = InitError.Success;
     public ControlError controlErrorStatus = ControlError.Success;
@@ -100,14 +140,31 @@ public class HardwareController {
             motorDriveLeftRear = hardwareMap.get(DcMotor.class, "leftrear");
             motorDriveRightFront = hardwareMap.get(DcMotor.class, "rightfront");
             motorDriveRightRear = hardwareMap.get(DcMotor.class, "rightrear");
+            motorDriveStrafe = hardwareMap.get(DcMotor.class, "strafe");
             // Set the motor directions
             motorDriveLeftFront.setDirection(DcMotor.Direction.FORWARD);
             motorDriveLeftRear.setDirection(DcMotor.Direction.FORWARD);
             motorDriveRightFront.setDirection(DcMotor.Direction.REVERSE);
             motorDriveRightRear.setDirection(DcMotor.Direction.REVERSE);
+            motorDriveStrafe.setDirection(DcMotor.Direction.FORWARD);
+
+            // Start the encoders
+            motorDriveLeftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motorDriveLeftRear.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motorDriveRightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motorDriveRightRear.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motorDriveStrafe.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+            // Run Using Encoders
+            motorDriveLeftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            motorDriveLeftRear.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            motorDriveRightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            motorDriveRightRear.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            motorDriveStrafe.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
             // lift motor
-            motorLift = hardwareMap.get(DcMotor.class, "lift");
+            motorLiftInterior = hardwareMap.get(DcMotor.class, "liftint");
+            motorLiftExterior = hardwareMap.get(DcMotor.class, "liftext");
         } catch (Exception ex) {
             initErrorStatus = InitError.MotorInit;
         }
@@ -149,6 +206,13 @@ public class HardwareController {
             initErrorStatus = InitError.ColorInit;
         }
 
+        try {
+            leftOpticalDistance = hardwareMap.get(OpticalDistanceSensor.class, "leftods");
+            rightOpticalDistance = hardwareMap.get(OpticalDistanceSensor.class, "rightods");
+        } catch (Exception ex) {
+            initErrorStatus = InitError.ODS;
+        }
+
         // Setup the Range Sensor on I2C
         try {
             //range = hardwareMap.i2cDevice.get("range");
@@ -174,7 +238,9 @@ public class HardwareController {
 
     public void updateSensorsAndTelmetry() {
         waveRightGripper();
-        //updateGYROValues();
+        updateEncoders();
+        updateGYROValues();
+        updateGripperODS();
         //updateRangeSensor();
         addErrorTelemetry();
         updateTelemetry();
@@ -189,10 +255,8 @@ public class HardwareController {
     ////// Control motors and servos
     // Mecanum drive
     public void MecanumDrive(double x, double y, double turn) {
-        x *= -1;
-        y *= -1;
-        turn *= -1;
-
+        x *= mecanumXMod;
+        y *= mecanumYMod;
         turn *= turnMod;
         double r = Math.hypot(x,y);
         double robotAngle = Math.atan2(y,x) - Math.PI / 4;
@@ -211,9 +275,68 @@ public class HardwareController {
             controlErrorStatus = ControlError.Drive;
         }
     }
+    // OmniDrive
+    public void OmniDrive(double x, double y, double turn) {
+        x *= omniXMod;
+        y *= omniYMod;
+        turn *= turnMod;
+
+        final double leftPower = y + turn;
+        final double rightPower = y - turn;
+        final double strafePower = x * omniStrafeMod;
+
+        try {
+            motorDriveLeftFront.setPower(leftPower * speedMod);
+            motorDriveLeftRear.setPower(leftPower * speedMod);
+            motorDriveRightFront.setPower(rightPower * speedMod);
+            motorDriveRightRear.setPower(rightPower * speedMod);
+            motorDriveStrafe.setPower(strafePower * speedMod);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Drive;
+        }
+    }
+    // OmniDrive Tank
+    public void OmniDriveTank(double left, double right, double strafe) {
+        left *= omniYMod * speedMod;
+        right *= omniYMod * speedMod;
+        strafe *= omniStrafeMod;
+
+        double leftPower = right;
+        double rightPower = left;
+
+        try {
+            motorDriveLeftFront.setPower(leftPower);
+            motorDriveLeftRear.setPower(leftPower);
+            motorDriveRightFront.setPower(rightPower);
+            motorDriveRightRear.setPower(rightPower);
+            motorDriveStrafe.setPower(strafe);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Drive;
+        }
+    }
     public void controlLift(double power) {
         try {
-            motorLift.setPower(-power);
+            if (useInteriorLiftMotor) {
+                motorLiftExterior.setPower(0);
+                motorLiftInterior.setPower(-power);
+            } else {
+                motorLiftInterior.setPower(0);
+                motorLiftExterior.setPower(-power);
+            }
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Lift;
+        }
+    }
+    public void setLiftMoveMotor(boolean interior) { useInteriorLiftMotor = interior; }
+    public void controlLiftAutoSwitch(double power) {
+        boolean down = power < 0;
+        power *= liftMod;
+        try {
+            if (moveExtLift(down)) motorLiftExterior.setPower(power);
+            else motorLiftExterior.setPower(0);
+
+            if (moveIntLift(down)) motorLiftInterior.setPower(power);
+            else motorLiftInterior.setPower(0);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Lift;
         }
@@ -222,12 +345,29 @@ public class HardwareController {
     // Gripper Servos
     public void openCloseBlockGripper(boolean closed) {
         if (closed) {
-            controlServo(servoGripLeft, leftClosedPos);
-            controlServo(servoGripRight, rightClosedPos);
+            controlLeftBlockGripper(leftClosedPos);
+            controlRightBlockGripper(rightClosedPos);
+            //controlServo(servoGripLeft, leftClosedPos);
+            //controlServo(servoGripRight, rightClosedPos);
         } else {
-            controlServo(servoGripLeft, leftOpenPos);
-            controlServo(servoGripRight, rightOpenPos);
+            controlLeftBlockGripper(leftOpenPos);
+            controlRightBlockGripper(rightOpenPos);
+            //controlServo(servoGripLeft, leftOpenPos);
+            //controlServo(servoGripRight, rightOpenPos);
         }
+    }
+    public void variableControlBlockGripper(double amountMove) {
+        amountMove *= 0.1;
+        controlLeftBlockGripper(leftGripPos + amountMove);
+        controlRightBlockGripper(rightGripPos - amountMove);
+    }
+    public void controlRightBlockGripper(double position) {
+        rightGripPos = position;
+        controlServo(servoGripRight, rightGripPos);
+    }
+    public void controlLeftBlockGripper(double position) {
+        leftGripPos = position;
+        controlServo(servoGripLeft, leftGripPos);
     }
     public void startRightWave(boolean wave) {
         if (wave && waveStartTime < 0) waveStartTime = System.currentTimeMillis();
@@ -273,6 +413,9 @@ public class HardwareController {
 
             // Calculate adjusted heading
             adjustedHeading = heading - zeroedHeading;
+
+            // Acceleration
+            acceleration = imu.getAcceleration();
 
             telemetry.addData("Heading", heading);
             telemetry.addData("Adjusted Heading", adjustedHeading);
@@ -341,5 +484,77 @@ public class HardwareController {
     // Get the values from the sensor
     public double getRangeUltraSonicValue() { return rangeUltraSonicValue; }
     public double getRangeODSValue() { return rangeODSValue; }
-}
 
+    ////// Encoders and drive distance
+    // Update distance
+    private void updateEncoders() {
+        double leftFrontTicks = motorDriveLeftFront.getCurrentPosition();
+        double leftRearTicks = motorDriveLeftRear.getCurrentPosition();
+
+        double rightFrontTicks = motorDriveRightFront.getCurrentPosition();
+        double rightRearTicks = motorDriveRightRear.getCurrentPosition();
+
+
+        //1120 Ticks Per Rotation with NeverRest 40 ???
+        double leftFrontRotations = leftFrontTicks / driveEncoderTicksPerRotation;
+        double leftRearRotations = leftRearTicks / driveEncoderTicksPerRotation;
+
+        double rightFrontRotations = rightFrontTicks / driveEncoderTicksPerRotation;
+        double rightRearRotations = rightRearTicks / driveEncoderTicksPerRotation;
+
+        double wheelCircumferenceInches = 2 * Math.PI * driveWheelDiameterInches;
+
+        leftFrontWheelDistance = leftFrontRotations / wheelCircumferenceInches;
+        leftRearWheelDistance = leftRearRotations / wheelCircumferenceInches;
+
+        rightFrontWheelDistance = rightFrontRotations / wheelCircumferenceInches;
+        rightRearWheelDistance = rightRearRotations / wheelCircumferenceInches;
+
+        avgLeftDistance = (leftFrontWheelDistance + leftRearWheelDistance) / 2;
+        avgRightDistance = (rightFrontWheelDistance + rightRearWheelDistance) / 2;
+
+        avgTotalDistance = (avgLeftDistance + avgRightDistance) / 2;
+    }
+
+    // Get the distances
+    public double getAvgLeftDistance() { return avgLeftDistance; }
+    public double getAvgRightDistance() { return avgRightDistance; }
+    public double getAvgTotalDistance() { return avgTotalDistance; }
+
+    // Left and right ODS Control
+    private void updateGripperODS() {
+        try {
+            leftODSDetected = leftOpticalDistance.getLightDetected();
+            rightODSDetected = rightOpticalDistance.getLightDetected();
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.ODS;
+        }
+    }
+    // Get the sensor values
+    public double getLeftODSDetected() { return leftODSDetected; }
+    public double getRightODSDetected() { return rightODSDetected; }
+
+    //// Lift limit switches
+    // Limit switch values as string
+    private boolean moveExtLift(boolean down) {
+        String position = getLiftPos(liftExtUpLs, liftExtDownLs);
+        if (down && position != "down") return true;
+        if (!down && position != "up") return true;
+        return false;
+    }
+    private boolean moveIntLift(boolean down) {
+        String position = getLiftPos(liftIntUpLs, liftIntDownLs);
+        if (down && position != "down") return true;
+        if (!down && position != "up") return true;
+        return false;
+    }
+    private String getLiftPos(DigitalChannel upLs, DigitalChannel downLs) {
+        try {
+            if (upLs.getState() && !downLs.getState()) return "up";
+            else if (!upLs.getState() && downLs.getState()) return "down";
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.LimitSwitches;
+        }
+        return "none";
+    }
+}
