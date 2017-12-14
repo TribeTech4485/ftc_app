@@ -6,7 +6,6 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
@@ -82,7 +81,7 @@ public class HardwareController {
     private double rangeUltraSonicValue = -1.0;
 
     // GYRO and Turning
-    private PIDController pid;
+    private PIDController turnPIDController;
     private Orientation angles;
     private double zeroedHeading = 0.0;
     private double adjustedHeading = 0.0;
@@ -91,17 +90,24 @@ public class HardwareController {
     private double pitch = 0.0;
     private Acceleration acceleration;
 
-    // Distance
+    // Encoders and Driving Distance
+    private PIDController drivePIDController;
     private double rightFrontWheelDistance = 0, rightRearWheelDistance = 0;
     private double leftFrontWheelDistance = 0, leftRearWheelDistance = 0;
     private double avgLeftDistance = 0, avgRightDistance = 0;
     private double avgTotalDistance = 0;
+    private double leftFrontEncZeroVal = 0.0, leftRearEncZeroVal = 0.0;
+    private double rightFrontEncZeroVal = 0.0, rightRearEncZeroVal = 0.0;
 
 
     // Time from last turn (We need some latency because the motors don't stop right when the joystick is released)
     private double turnStartTime = -1;
     private double turnDuration = 0;
     private double turnWait = 15;   // Wait time for turn in ms
+
+    // Drive Time Start Time
+    private double driveTimeStart = -1.0;
+    private double waitTimeStart = -1.0;
 
     // Speed modifiers
     private double turnMod = -0.75;
@@ -222,18 +228,38 @@ public class HardwareController {
             initErrorStatus = InitError.RangeInit;
         }
 
-        // Set PID
-        pid = new PIDController();
-        SPID spid = new SPID();
-        spid.iMax = 1.0;
-        spid.iMin = -1.0;
-        spid.pGain = 0.0;
-        spid.iGain = 0.0;
-        spid.dGain = 0.0;
-        pid.setSPID(spid);
+        // Set PID For Turning
+        turnPIDController = new PIDController();
+        SPID turnSPID = new SPID();
+        turnSPID.iMax = 1.0;
+        turnSPID.iMin = -1.0;
+        turnSPID.pGain = 0.0;
+        turnSPID.iGain = 0.0;
+        turnSPID.dGain = 0.0;
+        turnPIDController.setSPID(turnSPID);
+
+        // Set PID For Driving
+        drivePIDController = new PIDController();
+        SPID driveSPID = new SPID();
+        driveSPID.iMax = 1.0;
+        driveSPID.iMin = -1.0;
+        driveSPID.pGain = 0.0;
+        driveSPID.iGain = 0.0;
+        driveSPID.dGain = 0.0;
+        drivePIDController.setSPID(driveSPID);
+
 
         telemetry.addData("Status", "Initialized, Error Code: " + initErrorStatus.toString());
         telemetry.update();
+    }
+
+    public boolean waitIterative(double ms) {   // Simple function to wait for a given amount of time iteratively
+        if (waitTimeStart < 0) waitTimeStart = System.currentTimeMillis();
+        if (System.currentTimeMillis() - waitTimeStart >= ms) {
+            waitTimeStart = -1;
+            return false;
+        }
+        return true;    // Return false when done, do this in ALL functions like this
     }
 
     public void updateSensorsAndTelmetry() {
@@ -243,6 +269,8 @@ public class HardwareController {
         updateGripperODS();
         //updateRangeSensor();
         addErrorTelemetry();
+        telemetry.addData("Right Gripper Servo Position", rightGripPos);
+        telemetry.addData("Left Gripper Servo Position", leftGripPos);
         updateTelemetry();
     }
     private void addErrorTelemetry() {
@@ -314,6 +342,26 @@ public class HardwareController {
             controlErrorStatus = ControlError.Drive;
         }
     }
+
+    // Function for driving forward distance
+    public void driveForwardDistanceNoPIDIterative(double inches) {
+        // This function drives until the distance (given in inches because we're in the US) is reached
+
+    }
+
+    // Function for driving with time
+    public boolean driveTimeIterative(double ms, double forward, double strafe, double turn) {
+        if (driveTimeStart < 0)  driveTimeStart = System.currentTimeMillis();
+        double duration = System.currentTimeMillis() - driveTimeStart;
+        if (duration >= ms)  {
+            OmniDrive(0, 0, 0);
+            driveTimeStart = -1;
+            return false;    // Return false when the time is up
+        }
+        OmniDrive(strafe,forward,turn);
+        return true;   // Return true when we need to wait longer
+    }
+
     public void controlLift(double power) {
         try {
             if (useInteriorLiftMotor) {
@@ -427,7 +475,7 @@ public class HardwareController {
     public double getTurnPID(double target) {
         double error = target - adjustedHeading;
         if (Math.abs(error) < 1) return 0;
-        return pid.update(error, adjustedHeading);
+        return turnPIDController.update(error, adjustedHeading);
     }
 
     public void setZeroedHeading() { zeroedHeading = heading; }
@@ -504,11 +552,13 @@ public class HardwareController {
 
         double wheelCircumferenceInches = 2 * Math.PI * driveWheelDiameterInches;
 
-        leftFrontWheelDistance = leftFrontRotations / wheelCircumferenceInches;
-        leftRearWheelDistance = leftRearRotations / wheelCircumferenceInches;
+        telemetry.addData("Left Front Rotations", leftFrontRotations);
 
-        rightFrontWheelDistance = rightFrontRotations / wheelCircumferenceInches;
-        rightRearWheelDistance = rightRearRotations / wheelCircumferenceInches;
+        leftFrontWheelDistance = leftFrontRotations * wheelCircumferenceInches;
+        leftRearWheelDistance = leftRearRotations * wheelCircumferenceInches;
+
+        rightFrontWheelDistance = rightFrontRotations * wheelCircumferenceInches;
+        rightRearWheelDistance = rightRearRotations * wheelCircumferenceInches;
 
         avgLeftDistance = (leftFrontWheelDistance + leftRearWheelDistance) / 2;
         avgRightDistance = (rightFrontWheelDistance + rightRearWheelDistance) / 2;
@@ -516,7 +566,24 @@ public class HardwareController {
         avgTotalDistance = (avgLeftDistance + avgRightDistance) / 2;
     }
 
+    // Function to set the zeroed encoder values
+    public void zeroDriveEncoders() {
+        try {
+            leftFrontEncZeroVal = motorDriveLeftFront.getCurrentPosition();
+            leftRearEncZeroVal = motorDriveLeftRear.getCurrentPosition();
+            rightFrontEncZeroVal = motorDriveRightFront.getCurrentPosition();
+            rightRearEncZeroVal = motorDriveRightRear.getCurrentPosition();
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Drive;
+        }
+    }
+
     // Get the distances
+    public double getRightFrontWheelDistance() { return rightFrontWheelDistance; }
+    public double getRightRearWheelDistance() { return rightRearWheelDistance; }
+    public double getLeftFrontWheelDistance() { return leftFrontWheelDistance; }
+    public double getLeftRearWheelDistance() { return leftRearWheelDistance; }
+
     public double getAvgLeftDistance() { return avgLeftDistance; }
     public double getAvgRightDistance() { return avgRightDistance; }
     public double getAvgTotalDistance() { return avgTotalDistance; }
