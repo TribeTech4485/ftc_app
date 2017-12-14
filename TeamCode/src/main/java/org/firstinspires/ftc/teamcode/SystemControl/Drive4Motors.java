@@ -70,9 +70,9 @@ public class Drive4Motors extends OpMode {
 
         // Control the arm
         // TODO: Remove this, it isn't really necessary.
-        if (controlPad.left_bumper) armDown = false;
-        else if (controlPad.right_bumper) armDown = true;
-        hwcon.raiseLowerArm(armDown);
+        //if (controlPad.left_bumper) armDown = false;
+        //else if (controlPad.right_bumper) armDown = true;
+        //hwcon.raiseLowerArm(armDown);
 
         // A friendly wave at the push of a button
         hwcon.startRightWave(drivePad.dpad_right);
@@ -81,7 +81,10 @@ public class Drive4Motors extends OpMode {
         //// Control the lift
 
         // New lift control
-        hwcon.controlLiftAutoSwitch(controlPad.right_trigger - controlPad.left_trigger);
+        //hwcon.controlLiftAutoSwitch(controlPad.right_trigger - controlPad.left_trigger);
+
+        hwcon.setLiftMoveMotor(controlPad.y);
+        hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
 
         // Switch between the interior and exterior lift
         // TODO: Deprecate this and replace it with auto switching.
@@ -116,6 +119,11 @@ public class Drive4Motors extends OpMode {
         telemetry.addData("Left ODS", hwcon.getLeftODSDetected());
 
         // Encoder Distance Telemetry
+        telemetry.addData("Right Front Distance", hwcon.getRightFrontWheelDistance());
+        telemetry.addData("Right Rear Distance", hwcon.getRightRearWheelDistance());
+        telemetry.addData("Left Front Distance", hwcon.getLeftFrontWheelDistance());
+        telemetry.addData("Left Rear Distance", hwcon.getLeftRearWheelDistance());
+
         telemetry.addData("Total Distace", hwcon.getAvgTotalDistance());
         telemetry.addData("AVG Left Distance", hwcon.getAvgLeftDistance());
         telemetry.addData("AVG Right Distance", hwcon.getAvgRightDistance());
