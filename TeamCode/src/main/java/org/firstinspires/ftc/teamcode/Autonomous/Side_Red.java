@@ -17,23 +17,26 @@ public class Side_Red extends LinearOpMode {
     @Override
     public void runOpMode() {
         hwcon.initHardware(hardwareMap, telemetry);
+
+        waitForStart();
+
         //// Pick up block
         hwcon.openCloseBlockGripper(true);  // Close gripper
-        while (hwcon.waitIterative(1500) && !isStopRequested());
+        while (hwcon.waitIterative(1500) && !isStopRequested());    // Wait for the block to be picked up
         hwcon.controlLift(1.0); // Start moving
-        while (hwcon.waitIterative(750) && !isStopRequested());
+        while (hwcon.waitIterative(750) && !isStopRequested());     // Move the lift up for 750 ms
         hwcon.controlLift(0.0); // Stop moving
-        hitBall();
-        while (hwcon.waitIterative(500) && !isStopRequested());
-        while (hwcon.driveTimeIterative(1200, -1.0, 0, 0) && !isStopRequested());
-        while (hwcon.driveTimeIterative(1000, 0, 0, 1.0) && !isStopRequested());
-        while (hwcon.driveTimeIterative(1900, -1.0, 0, 0) && !isStopRequested());
-        hwcon.openCloseBlockGripper(false);
-        while (hwcon.waitIterative(250) && !isStopRequested());
-        while (hwcon.driveTimeIterative(350, 0,0, -1.0));
-        while (hwcon.driveTimeIterative(-400, 1.0, 0, 0) && !isStopRequested());
-        while (hwcon.driveTimeIterative(100, 1.0, 0, 0) && !isStopRequested());
-        hwcon.OmniDrive(0,0,0);
+        hitBall();  // Hit the other team's ball off
+        while (hwcon.waitIterative(500) && !isStopRequested());     // Wait for a little
+        while (hwcon.driveTimeIterative(1200, -1.0, 0, 0) && !isStopRequested());   // move forward off the pad
+        while (hwcon.driveTimeIterative(1000, 0, 0, 1.0) && !isStopRequested());    // turn to face the goal
+        while (hwcon.driveTimeIterative(1900, -1.0, 0, 0) && !isStopRequested());   // move forward to the goal
+        hwcon.openCloseBlockGripper(false);     // Open the block grippers
+        while (hwcon.waitIterative(250) && !isStopRequested()); // wait for the grippers to open
+        while (hwcon.driveTimeIterative(350, 0,0, -1.0));       // angle the block
+        while (hwcon.driveTimeIterative(-400, 1.0, 0, 0) && !isStopRequested());    // push the block into the goal
+        while (hwcon.driveTimeIterative(100, 1.0, 0, 0) && !isStopRequested());     // back away from the block but stay in the scoring zone
+        hwcon.OmniDrive(0,0,0);     // Stop moving
     }
 
     private void hitBall() {
