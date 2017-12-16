@@ -81,11 +81,13 @@ public class Drive4Motors extends OpMode {
         //// Control the lift
 
         // New lift control
+        hwcon.setLiftMoveMotor(controlPad.y);
+        hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
         if (controlPad.dpad_down) {
-            hwcon.setLiftMoveMotor(controlPad.y);
-            hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
+            //hwcon.setLiftMoveMotor(controlPad.y);
+            //  hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
         } else {
-            hwcon.controlLiftAutoSwitch_noIntSensors(controlPad.right_trigger - controlPad.left_trigger);
+            //hwcon.controlLiftAutoSwitch_noIntSensors(controlPad.right_trigger - controlPad.left_trigger);
         }
 
         // Switch between the interior and exterior lift
