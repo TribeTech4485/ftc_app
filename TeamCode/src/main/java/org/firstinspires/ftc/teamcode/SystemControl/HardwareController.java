@@ -46,8 +46,9 @@ public class HardwareController {
     private double rightOpenPos = 0.2, rightClosedPos = 0.75;
     private double rightGripPos = rightOpenPos, leftGripPos = leftOpenPos;
     private Servo servoGripLeft = null, servoGripRight = null;
-    private double armUpPos = 0.25, armDownPos = 0.95;//0.84;   // Arm needs to go down more. Try 0.95 instead of 0.84
-    private Servo servoArm = null;
+    private double armUpPos = 0.25, armDownPos = 0.95;
+    private double sensorArmUpPos = 0.0, sensorArmDownPos = 1.0;
+    private Servo servoBallArm = null, servoBallArmSensorArm = null;
     // Waving
     private double waveStartTime = -1;
     private double waveDelay = 250;
@@ -179,7 +180,10 @@ public class HardwareController {
         try {
             servoGripLeft = hardwareMap.get(Servo.class, "leftgrab");
             servoGripRight = hardwareMap.get(Servo.class, "rightgrab");
-            servoArm = hardwareMap.get(Servo.class, "ballarm");
+
+            servoBallArm = hardwareMap.get(Servo.class, "ballarm");
+            servoBallArmSensorArm = hardwareMap.get(Servo.class, "sensorarm");
+
         } catch (Exception ex) {
             initErrorStatus = InitError.ServoInit;
         }
@@ -217,6 +221,17 @@ public class HardwareController {
             rightOpticalDistance = hardwareMap.get(OpticalDistanceSensor.class, "rightods");
         } catch (Exception ex) {
             initErrorStatus = InitError.ODS;
+        }
+
+        // Limit switches
+        try {
+            liftIntUpLs = hardwareMap.get(DigitalChannel.class, "intup");
+            liftIntDownLs = hardwareMap.get(DigitalChannel.class, "intdown");
+
+            liftExtUpLs = hardwareMap.get(DigitalChannel.class, "extup");
+            liftExtDownLs = hardwareMap.get(DigitalChannel.class, "extdown");
+        } catch (Exception ex) {
+            initErrorStatus = InitError.LimitSwitches;
         }
 
         // Setup the Range Sensor on I2C
@@ -389,6 +404,21 @@ public class HardwareController {
             controlErrorStatus = ControlError.Lift;
         }
     }
+    public void controlLiftAutoSwitch_noIntSensors(double power) {
+        boolean down = power < 0;
+        power *= liftMod;
+        try {
+            if (moveExtLift(down)) {
+                motorLiftExterior.setPower(power);
+                motorLiftInterior.setPower(0);
+            } else {
+                motorLiftInterior.setPower(power);
+                motorLiftExterior.setPower(0);
+            }
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Lift;
+        }
+    }
 
     // Gripper Servos
     public void openCloseBlockGripper(boolean closed) {
@@ -435,9 +465,9 @@ public class HardwareController {
     // Arm Servo
     public void raiseLowerArm(boolean down) {
         if (down) {
-            controlServo(servoArm, armDownPos);
+            controlServo(servoBallArm, armDownPos);
         } else {
-            controlServo(servoArm, armUpPos);
+            controlServo(servoBallArm, armUpPos);
         }
     }
 
@@ -604,13 +634,13 @@ public class HardwareController {
     //// Lift limit switches
     // Limit switch values as string
     private boolean moveExtLift(boolean down) {
-        String position = getLiftPos(liftExtUpLs, liftExtDownLs);
+        String position = getExtLiftPos();
         if (down && position != "down") return true;
         if (!down && position != "up") return true;
         return false;
     }
     private boolean moveIntLift(boolean down) {
-        String position = getLiftPos(liftIntUpLs, liftIntDownLs);
+        String position = getIntLiftPos();
         if (down && position != "down") return true;
         if (!down && position != "up") return true;
         return false;
@@ -623,5 +653,12 @@ public class HardwareController {
             controlErrorStatus = ControlError.LimitSwitches;
         }
         return "none";
+    }
+    // Get the lift positions
+    public String getExtLiftPos() {
+        return getLiftPos(liftExtUpLs, liftExtDownLs);
+    }
+    public String getIntLiftPos() {
+        return getLiftPos(liftIntUpLs, liftIntDownLs);
     }
 }
