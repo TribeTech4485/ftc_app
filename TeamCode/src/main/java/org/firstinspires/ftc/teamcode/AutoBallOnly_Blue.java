@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.SystemControl.HardwareController;
  * Created by Michael on 12/5/2017.
  */
 
-@Autonomous(name="AutoBallOnly_Blue", group="Blue")
+//@Autonomous(name="AutoBallOnly_Blue", group="Blue")
 public class AutoBallOnly_Blue extends LinearOpMode {
 
     HardwareController hwcon;

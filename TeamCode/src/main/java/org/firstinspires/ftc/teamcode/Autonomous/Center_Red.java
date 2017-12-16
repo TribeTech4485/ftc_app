@@ -53,11 +53,10 @@ public class Center_Red extends LinearOpMode {
         hwcon.updateSensorsAndTelmetry();
 
         // Put the arm down
+        hwcon.raiseLowerSensorArm(true);
+        while(hwcon.waitIterative(1500) && !isStopRequested());
         hwcon.raiseLowerArm(true);
-        {// Wait
-            double startWait = System.currentTimeMillis();
-            while(System.currentTimeMillis() - startWait < 1000);
-        }
+        while(hwcon.waitIterative(1000) && !isStopRequested());
 
         // Update the sensors again
         hwcon.updateSensorsAndTelmetry();
@@ -86,11 +85,11 @@ public class Center_Red extends LinearOpMode {
         while (!hwcon.driveTimeIterative(400, 0, 0, moveDirection));
 
         hwcon.OmniDrive(0,0,0);  // Stop moving
-        hwcon.raiseLowerArm(false); // Raise the arm
-        {   // 400ms delay for the arm to come up
-            double startWait = System.currentTimeMillis();
-            while (System.currentTimeMillis() - startWait < 400);
-        }
+        // Put the arm down
+        hwcon.raiseLowerArm(false);
+        while(hwcon.waitIterative(1000) && !isStopRequested());
+        hwcon.raiseLowerSensorArm(false);
+        while(hwcon.waitIterative(1500) && !isStopRequested());
 
         while(!hwcon.driveTimeIterative(400, 0, 0, -moveDirection));
 

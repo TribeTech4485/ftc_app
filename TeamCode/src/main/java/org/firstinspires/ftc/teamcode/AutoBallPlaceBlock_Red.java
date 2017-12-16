@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.SystemControl.HardwareController;
  * Created by Michael on 12/5/2017.
  */
 
-@Autonomous(name="AutoBallPlaceBlock_Red", group="Red")
+//@Autonomous(name="AutoBallPlaceBlock_Red", group="Red")
 public class AutoBallPlaceBlock_Red extends LinearOpMode {
 
     HardwareController hwcon;

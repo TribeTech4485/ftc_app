@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.SystemControl.HardwareController;
  * Created by Michael on 12/5/2017.
  */
 
-@Autonomous(name="Bet", group="Red")
+//@Autonomous(name="Bet", group="Red")
 public class AutoBallOnly_RedBet extends LinearOpMode {
 
     HardwareController hwcon;
