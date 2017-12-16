@@ -81,10 +81,12 @@ public class Drive4Motors extends OpMode {
         //// Control the lift
 
         // New lift control
-        //hwcon.controlLiftAutoSwitch(controlPad.right_trigger - controlPad.left_trigger);
-
-        hwcon.setLiftMoveMotor(controlPad.y);
-        hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
+        if (controlPad.dpad_down) {
+            hwcon.setLiftMoveMotor(controlPad.y);
+            hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
+        } else {
+            hwcon.controlLiftAutoSwitch_noIntSensors(controlPad.right_trigger - controlPad.left_trigger);
+        }
 
         // Switch between the interior and exterior lift
         // TODO: Deprecate this and replace it with auto switching.
@@ -127,6 +129,9 @@ public class Drive4Motors extends OpMode {
         telemetry.addData("Total Distace", hwcon.getAvgTotalDistance());
         telemetry.addData("AVG Left Distance", hwcon.getAvgLeftDistance());
         telemetry.addData("AVG Right Distance", hwcon.getAvgRightDistance());
+
+        telemetry.addData("Interior Lift Up/Down", hwcon.getIntLiftPos());
+        telemetry.addData("Exterior Lift Up/Down", hwcon.getExtLiftPos());
 
         // Update the sensors and telemetry in the hardware controller
         hwcon.updateSensorsAndTelmetry();
