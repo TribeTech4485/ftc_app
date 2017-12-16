@@ -46,8 +46,8 @@ public class HardwareController {
     private double rightOpenPos = 0.2, rightClosedPos = 0.75;
     private double rightGripPos = rightOpenPos, leftGripPos = leftOpenPos;
     private Servo servoGripLeft = null, servoGripRight = null;
-    private double armUpPos = 0.25, armDownPos = 0.95;
-    private double sensorArmUpPos = 0.0, sensorArmDownPos = 1.0;
+    private double armUpPos = 1.0, armDownPos = 0.1;
+    private double sensorArmUpPos = 1.0, sensorArmDownPos = 0.1;
     private Servo servoBallArm = null, servoBallArmSensorArm = null;
     // Waving
     private double waveStartTime = -1;
@@ -268,6 +268,12 @@ public class HardwareController {
         telemetry.update();
     }
 
+    public double flipTurnMod() {
+        double oldMod = turnMod;
+        turnMod *= -1;
+        return oldMod;  // Returns turnMod before it was changed so we can maybe change it back
+    }
+
     public boolean waitIterative(double ms) {   // Simple function to wait for a given amount of time iteratively
         if (waitTimeStart < 0) waitTimeStart = System.currentTimeMillis();
         if (System.currentTimeMillis() - waitTimeStart >= ms) {
@@ -468,6 +474,14 @@ public class HardwareController {
             controlServo(servoBallArm, armDownPos);
         } else {
             controlServo(servoBallArm, armUpPos);
+        }
+    }
+    // Sensor arm servo
+    public void raiseLowerSensorArm(boolean down) {
+        if (down) {
+            controlServo(servoBallArmSensorArm, sensorArmDownPos);
+        } else {
+            controlServo(servoBallArmSensorArm, sensorArmUpPos);
         }
     }
 
