@@ -35,8 +35,14 @@ public class HardwareController {
     private DcMotor motorDriveRightFront = null, motorDriveRightRear = null;    // Right side mecanum motors
     private DcMotor motorDriveLeftFront = null, motorDriveLeftRear = null;      // Left side mecanum motors
     private DcMotor motorDriveStrafe = null;    // Motor for strafing
+
+    private DcMotor motorLift = null;   // Motor for the lift
+
+    /* ------ OLD LIFT OBJECTS
     private DcMotor motorLiftInterior = null, motorLiftExterior = null;         // Lift motors
     private boolean useInteriorLiftMotor = false;   // Do we move the lift with the interior motor or the exterior?
+    ------------ */
+
     // Distance Measurement Values
     private static final double driveEncoderTicksPerRotation = 1120;    // 1120 for the Neverest 40 ???
     private static final double driveWheelDiameterInches = 4;   // Diameter of the wheels
@@ -47,8 +53,7 @@ public class HardwareController {
     private double rightGripPos = rightOpenPos, leftGripPos = leftOpenPos;
     private Servo servoGripLeft = null, servoGripRight = null;
     private double armUpPos = 1.0, armDownPos = 0.1;
-    private double sensorArmUpPos = 1.0, sensorArmDownPos = 0.1;
-    private Servo servoBallArm = null, servoBallArmSensorArm = null;
+    private Servo servoBallArm = null;
     // Waving
     private double waveStartTime = -1;
     private double waveDelay = 250;
@@ -58,12 +63,16 @@ public class HardwareController {
     private ColorSensor ballColorSensorRight = null;   // Color sensor for balls
     private BNO055IMU imu = null;  //Internal Gyro
 
+    /*------ OLD LIFT SENSOR VALUES ------
     // Lift Limit Switch Sensors
     private DigitalChannel liftIntUpLs, liftIntDownLs;  // Interior lift limit switches (up, down)
     private DigitalChannel liftExtUpLs, liftExtDownLs;  // Exterior lift limit switches (up, down)
     // Lift position values
     private boolean liftIntUpState = false, liftIntDownState = false;   // Interior lift position states
     private boolean liftExtUpState = false, liftExtDownState = false;   // Exterior lift position states
+
+    ------------*/
+
 
     private OpticalDistanceSensor leftOpticalDistance = null, rightOpticalDistance = null;   // Optical Distance Sensors on the left and right grippers
     // ODS values
@@ -170,8 +179,13 @@ public class HardwareController {
             motorDriveStrafe.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
             // lift motor
+            motorLift = hardwareMap.get(DcMotor.class, "lift");
+
+            /* ------ INIT FOR OLD LIFT
             motorLiftInterior = hardwareMap.get(DcMotor.class, "liftint");
             motorLiftExterior = hardwareMap.get(DcMotor.class, "liftext");
+            ------------ */
+
         } catch (Exception ex) {
             initErrorStatus = InitError.MotorInit;
         }
@@ -182,7 +196,6 @@ public class HardwareController {
             servoGripRight = hardwareMap.get(Servo.class, "rightgrab");
 
             servoBallArm = hardwareMap.get(Servo.class, "ballarm");
-            servoBallArmSensorArm = hardwareMap.get(Servo.class, "sensorarm");
 
         } catch (Exception ex) {
             initErrorStatus = InitError.ServoInit;
@@ -225,11 +238,14 @@ public class HardwareController {
 
         // Limit switches
         try {
+
+            /* ------- OLD LIFT LIMIT SWITCHES ------
             liftIntUpLs = hardwareMap.get(DigitalChannel.class, "intup");
             liftIntDownLs = hardwareMap.get(DigitalChannel.class, "intdown");
 
             liftExtUpLs = hardwareMap.get(DigitalChannel.class, "extup");
             liftExtDownLs = hardwareMap.get(DigitalChannel.class, "extdown");
+            ------------ */
         } catch (Exception ex) {
             initErrorStatus = InitError.LimitSwitches;
         }
@@ -383,6 +399,16 @@ public class HardwareController {
         return true;   // Return true when we need to wait longer
     }
 
+    // CONTROL FOR NEW LIFT
+    // Control the lift
+    public void controlLift(double power) {
+        try {
+            motorLift.setPower(power);
+        } catch (Exception ex) {
+            controlErrorStatus = ControlError.Lift;
+        }
+    }
+    /*  ------ CONTROL FOR OLD LIFT ------
     public void controlLift(double power) {
         try {
             if (useInteriorLiftMotor) {
@@ -425,6 +451,7 @@ public class HardwareController {
             controlErrorStatus = ControlError.Lift;
         }
     }
+    ------------*/
 
     // Gripper Servos
     public void openCloseBlockGripper(boolean closed) {
@@ -474,14 +501,6 @@ public class HardwareController {
             controlServo(servoBallArm, armDownPos);
         } else {
             controlServo(servoBallArm, armUpPos);
-        }
-    }
-    // Sensor arm servo
-    public void raiseLowerSensorArm(boolean down) {
-        if (down) {
-            controlServo(servoBallArmSensorArm, sensorArmDownPos);
-        } else {
-            controlServo(servoBallArmSensorArm, sensorArmUpPos);
         }
     }
 
@@ -645,6 +664,7 @@ public class HardwareController {
     public double getLeftODSDetected() { return leftODSDetected; }
     public double getRightODSDetected() { return rightODSDetected; }
 
+    /*  ------ SENSOR CONTROL FOR OLD DOUBLE LIFT
     //// Lift limit switches
     // Limit switch values as string
     private boolean moveExtLift(boolean down) {
@@ -675,4 +695,5 @@ public class HardwareController {
     public String getIntLiftPos() {
         return getLiftPos(liftIntUpLs, liftIntDownLs);
     }
+    */
 }
