@@ -25,6 +25,7 @@ import org.firstinspires.ftc.teamcode.PID.SPID;
 
 /*
  * TODO: Tune PID!!!
+ * TODO: Add Error Message Usage
  */
 public class HardwareController {
     ////// Hardware Objects
@@ -48,10 +49,14 @@ public class HardwareController {
     private static final double driveWheelDiameterInches = 4;   // Diameter of the wheels
 
     // Servos
-    private double leftOpenPos = 0.65, leftClosedPos = 0.10;
-    private double rightOpenPos = 0.2, rightClosedPos = 0.75;
-    private double rightGripPos = rightOpenPos, leftGripPos = leftOpenPos;
-    private Servo servoGripLeft = null, servoGripRight = null;
+    private double leftLowerOpenPos = 0.65, leftLowerClosedPos = 0.10;
+    private double rightLowerOpenPos = 0.2, rightLowerClosedPos = 0.75;
+    private double leftUpperOpenPos = 0.2, leftUpperClosedPos = 0.75;
+    private double rightUpperOpenPos = 0.65, rightUpperClosedPos = 0.10;
+    private double rightLowerGripPos = rightLowerOpenPos, leftLowerGripPos = leftLowerOpenPos;
+    private double rightUpperGripPos = rightUpperOpenPos, leftUpperGripPos = leftUpperOpenPos;
+    private Servo servoGripLeftLower = null, servoGripRightLower = null;
+    private Servo servoGripLeftUpper = null, servoGripRightUpper = null;
     private double armUpPos = 1.0, armDownPos = 0.1;
     private Servo servoBallArm = null;
     // Waving
@@ -141,7 +146,23 @@ public class HardwareController {
 
     public InitError initErrorStatus = InitError.Success;
     public ControlError controlErrorStatus = ControlError.Success;
+    private String initErrorMessage = "";
+    private String controlErrorMessage = "";
 
+
+    // Function to add errors to the init error message string in a formatted way so that it is readable.
+    private void formatInitErrorMessage(String errorMessageString) {
+        if (initErrorMessage.contains(initErrorStatus.toString())) return; // Don't add the error if one from the same system already exists.
+        if (initErrorMessage != "") initErrorMessage += "\n";
+        initErrorMessage += initErrorStatus.toString() + ": " + errorMessageString + "---";
+    }
+    // Function to add errors to the control error message string in a formatted way so that it is readable.
+    private void formatControlErrorMessage(String errorMessageString) {
+        if (controlErrorMessage.contains(controlErrorStatus.toString())) return;    // Don't add the error if one from the same system already exists.
+        if (controlErrorMessage != "") controlErrorMessage += "\n";
+        controlErrorMessage += controlErrorStatus.toString() + ": " + errorMessageString + "---";
+
+    }
 
     public void initHardware(HardwareMap hm, Telemetry tel) {
         hardwareMap = hm;
@@ -156,34 +177,33 @@ public class HardwareController {
             motorDriveLeftRear = hardwareMap.get(DcMotor.class, "leftrear");
             motorDriveRightFront = hardwareMap.get(DcMotor.class, "rightfront");
             motorDriveRightRear = hardwareMap.get(DcMotor.class, "rightrear");
-            motorDriveStrafe = hardwareMap.get(DcMotor.class, "strafe");
             // Set the motor directions
             motorDriveLeftFront.setDirection(DcMotor.Direction.FORWARD);
             motorDriveLeftRear.setDirection(DcMotor.Direction.FORWARD);
             motorDriveRightFront.setDirection(DcMotor.Direction.REVERSE);
             motorDriveRightRear.setDirection(DcMotor.Direction.REVERSE);
-            motorDriveStrafe.setDirection(DcMotor.Direction.FORWARD);
+            //motorDriveStrafe.setDirection(DcMotor.Direction.FORWARD);
 
             // Start the encoders
             motorDriveLeftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             motorDriveLeftRear.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             motorDriveRightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             motorDriveRightRear.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            motorDriveStrafe.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            //motorDriveStrafe.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
             // Run Using Encoders
             motorDriveLeftFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             motorDriveLeftRear.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             motorDriveRightFront.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             motorDriveRightRear.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            motorDriveStrafe.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            //motorDriveStrafe.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
             // lift motor
             motorLiftLeft = hardwareMap.get(DcMotor.class, "liftleft");
             motorLiftRight = hardwareMap.get(DcMotor.class, "liftright");
 
-            motorLiftLeft.setDirection(DcMotor.Direction.FORWARD);
-            motorLiftRight.setDirection(DcMotor.Direction.REVERSE);
+            //motorLiftLeft.setDirection(DcMotor.Direction.FORWARD);
+            //motorLiftRight.setDirection(DcMotor.Direction.REVERSE);
 
             /* ------ INIT FOR OLD LIFT
             motorLiftInterior = hardwareMap.get(DcMotor.class, "liftint");
@@ -192,17 +212,21 @@ public class HardwareController {
 
         } catch (Exception ex) {
             initErrorStatus = InitError.MotorInit;
+            formatInitErrorMessage(ex.toString());
         }
 
         // Initialize the servos
         try {
-            servoGripLeft = hardwareMap.get(Servo.class, "leftgrab");
-            servoGripRight = hardwareMap.get(Servo.class, "rightgrab");
+            servoGripLeftLower = hardwareMap.get(Servo.class, "leftlowgrab");
+            servoGripRightLower = hardwareMap.get(Servo.class, "rightlowgrab");
+            servoGripLeftUpper = hardwareMap.get(Servo.class, "leftupgrab");
+            servoGripRightUpper = hardwareMap.get(Servo.class, "rightupgrab");
 
             servoBallArm = hardwareMap.get(Servo.class, "ballarm");
 
         } catch (Exception ex) {
             initErrorStatus = InitError.ServoInit;
+            formatInitErrorMessage(ex.toString());
         }
 
         // Setup the gyro
@@ -221,6 +245,7 @@ public class HardwareController {
             imu.initialize(parameters);
         } catch (Exception ex) {
             initErrorStatus = InitError.GyroInit;
+            formatInitErrorMessage(ex.toString());
         }
 
         // Setup the Color Sensors
@@ -231,6 +256,7 @@ public class HardwareController {
             ballColorSensorRight.enableLed(true);
         } catch (Exception ex) {
             initErrorStatus = InitError.ColorInit;
+            formatInitErrorMessage(ex.toString());
         }
 
         try {
@@ -238,6 +264,7 @@ public class HardwareController {
             rightOpticalDistance = hardwareMap.get(OpticalDistanceSensor.class, "rightods");
         } catch (Exception ex) {
             initErrorStatus = InitError.ODS;
+            formatInitErrorMessage(ex.toString());
         }
 
         // Limit switches
@@ -252,6 +279,7 @@ public class HardwareController {
             ------------ */
         } catch (Exception ex) {
             initErrorStatus = InitError.LimitSwitches;
+            formatInitErrorMessage(ex.toString());
         }
 
         // Setup the Range Sensor on I2C
@@ -261,6 +289,7 @@ public class HardwareController {
             //rangeReader.engage();
         } catch (Exception ex) {
             initErrorStatus = InitError.RangeInit;
+            formatInitErrorMessage(ex.toString());
         }
 
         // Set PID For Turning
@@ -285,6 +314,7 @@ public class HardwareController {
 
 
         telemetry.addData("Status", "Initialized, Error Code: " + initErrorStatus.toString());
+        if (initErrorMessage != "") telemetry.addData("Error Message", initErrorMessage);
         telemetry.update();
     }
 
@@ -309,15 +339,19 @@ public class HardwareController {
         updateGYROValues();
         updateGripperODS();
         //updateRangeSensor();
+        telemetry.addData("Lower Left Gripper Servo Position", leftLowerGripPos);
+        telemetry.addData("Lower Right Gripper Servo Position", rightLowerGripPos);
+        telemetry.addData("Upper Left Gripper Servo Position", leftUpperGripPos);
+        telemetry.addData("Upper Right Gripper Servo Position", rightUpperGripPos);
         addErrorTelemetry();
-        telemetry.addData("Right Gripper Servo Position", rightGripPos);
-        telemetry.addData("Left Gripper Servo Position", leftGripPos);
         updateTelemetry();
     }
     private void addErrorTelemetry() {
         telemetry.addData("Init Status Code", initErrorStatus.toString());
+        if (initErrorMessage != "") telemetry.addData("Init Status Message", initErrorMessage);
         telemetry.addData("Control Status Code", controlErrorStatus.toString());
-    }
+        if (controlErrorMessage != "") telemetry.addData("Control Status Message", controlErrorMessage);
+}
     private void updateTelemetry() { telemetry.update();}
 
 
@@ -342,6 +376,7 @@ public class HardwareController {
             motorDriveRightRear.setPower(v4 * speedMod);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Drive;
+            formatControlErrorMessage(ex.toString());
         }
     }
     // OmniDrive
@@ -359,9 +394,10 @@ public class HardwareController {
             motorDriveLeftRear.setPower(leftPower * speedMod);
             motorDriveRightFront.setPower(rightPower * speedMod);
             motorDriveRightRear.setPower(rightPower * speedMod);
-            motorDriveStrafe.setPower(strafePower * speedMod);
+            //motorDriveStrafe.setPower(strafePower * speedMod);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Drive;
+            formatControlErrorMessage(ex.toString());
         }
     }
     // OmniDrive Tank
@@ -378,9 +414,10 @@ public class HardwareController {
             motorDriveLeftRear.setPower(leftPower);
             motorDriveRightFront.setPower(rightPower);
             motorDriveRightRear.setPower(rightPower);
-            motorDriveStrafe.setPower(strafe);
+            //motorDriveStrafe.setPower(strafe);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Drive;
+            formatControlErrorMessage(ex.toString());
         }
     }
 
@@ -411,6 +448,7 @@ public class HardwareController {
             motorLiftRight.setPower(power);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Lift;
+            formatControlErrorMessage(ex.toString());
         }
     }
     /*  ------ CONTROL FOR OLD LIFT ------
@@ -461,29 +499,43 @@ public class HardwareController {
     // Gripper Servos
     public void openCloseBlockGripper(boolean closed) {
         if (closed) {
-            controlLeftBlockGripper(leftClosedPos);
-            controlRightBlockGripper(rightClosedPos);
-            //controlServo(servoGripLeft, leftClosedPos);
-            //controlServo(servoGripRight, rightClosedPos);
+            controlUpperLeftBlockGripper(leftUpperClosedPos);
+            controlUpperRightBlockGripper(rightUpperClosedPos);
+            controlLowerLeftBlockGripper(leftLowerClosedPos);
+            controlLowerRightBlockGripper(rightLowerClosedPos);
+            //controlServo(servoGripLeftLower, leftLowerClosedPos);
+            //controlServo(servoGripRightLower, rightLowerClosedPos);
         } else {
-            controlLeftBlockGripper(leftOpenPos);
-            controlRightBlockGripper(rightOpenPos);
-            //controlServo(servoGripLeft, leftOpenPos);
-            //controlServo(servoGripRight, rightOpenPos);
+            controlUpperLeftBlockGripper(leftUpperOpenPos);
+            controlUpperRightBlockGripper(rightUpperOpenPos);
+            controlLowerLeftBlockGripper(leftLowerOpenPos);
+            controlLowerRightBlockGripper(rightLowerOpenPos);
+            //controlServo(servoGripLeftLower, leftLowerOpenPos);
+            //controlServo(servoGripRightLower, rightLowerOpenPos);
         }
     }
     public void variableControlBlockGripper(double amountMove) {
         amountMove *= 0.1;
-        controlLeftBlockGripper(leftGripPos + amountMove);
-        controlRightBlockGripper(rightGripPos - amountMove);
+        controlUpperLeftBlockGripper(leftUpperGripPos - amountMove);
+        controlUpperRightBlockGripper(rightUpperGripPos + amountMove);
+        controlLowerLeftBlockGripper(leftLowerGripPos + amountMove);
+        controlLowerRightBlockGripper(rightLowerGripPos - amountMove);
     }
-    public void controlRightBlockGripper(double position) {
-        rightGripPos = position;
-        controlServo(servoGripRight, rightGripPos);
+    public void controlUpperRightBlockGripper(double position) {
+        rightUpperGripPos = position;
+        controlServo(servoGripRightUpper, rightUpperGripPos);
     }
-    public void controlLeftBlockGripper(double position) {
-        leftGripPos = position;
-        controlServo(servoGripLeft, leftGripPos);
+    public void controlUpperLeftBlockGripper(double position) {
+        leftUpperGripPos = position;
+        controlServo(servoGripLeftUpper, leftUpperGripPos);
+    }
+    public void controlLowerRightBlockGripper(double position) {
+        rightLowerGripPos = position;
+        controlServo(servoGripRightLower, rightLowerGripPos);
+    }
+    public void controlLowerLeftBlockGripper(double position) {
+        leftLowerGripPos = position;
+        controlServo(servoGripLeftLower, leftLowerGripPos);
     }
     public void startRightWave(boolean wave) {
         if (wave && waveStartTime < 0) waveStartTime = System.currentTimeMillis();
@@ -492,13 +544,13 @@ public class HardwareController {
     public void waveRightGripper() {
         if (waveStartTime < 0) return;
         double duration = System.currentTimeMillis() - waveStartTime;
-        double c = rightClosedPos;
-        if (duration >= 0 && duration < waveDelay * 0.5) c = rightClosedPos;
-        if (duration >= waveDelay) c = rightOpenPos;
-        if (duration >= waveDelay * 2) c = rightClosedPos;
-        if (duration >= waveDelay * 3) c = rightOpenPos;
+        double c = rightLowerClosedPos;
+        if (duration >= 0 && duration < waveDelay * 0.5) c = rightLowerClosedPos;
+        if (duration >= waveDelay) c = rightLowerOpenPos;
+        if (duration >= waveDelay * 2) c = rightLowerClosedPos;
+        if (duration >= waveDelay * 3) c = rightLowerOpenPos;
         if (duration >= waveDelay * 4) waveStartTime = -1;
-        controlServo(servoGripRight, c);
+        controlServo(servoGripRightLower, c);
     }
     // Arm Servo
     public void raiseLowerArm(boolean down) {
@@ -515,6 +567,7 @@ public class HardwareController {
             servo.setPosition(c);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Servo;
+            formatControlErrorMessage(ex.toString());
         }
     }
 
@@ -537,6 +590,7 @@ public class HardwareController {
             telemetry.addData("Adjusted Heading", adjustedHeading);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Gyro;
+            formatControlErrorMessage(ex.toString());
         }
     }
 
@@ -565,6 +619,7 @@ public class HardwareController {
             rgbValues = new int[]{cs.red(), cs.green(), cs.blue()};
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Color;
+            formatControlErrorMessage(ex.toString());
         }
         return rgbValues;
     }
@@ -595,6 +650,7 @@ public class HardwareController {
             rangeODSValue = rangeCache[1] & 0xFF;
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Range;
+            formatControlErrorMessage(ex.toString());
         }
     }
     // Get the values from the sensor
@@ -643,6 +699,7 @@ public class HardwareController {
             rightRearEncZeroVal = motorDriveRightRear.getCurrentPosition();
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Drive;
+            formatControlErrorMessage(ex.toString());
         }
     }
 
@@ -663,6 +720,7 @@ public class HardwareController {
             rightODSDetected = rightOpticalDistance.getLightDetected();
         } catch (Exception ex) {
             controlErrorStatus = ControlError.ODS;
+            formatControlErrorMessage(ex.toString());
         }
     }
     // Get the sensor values
