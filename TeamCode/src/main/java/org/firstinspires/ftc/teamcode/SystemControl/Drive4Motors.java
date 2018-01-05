@@ -79,6 +79,7 @@ public class Drive4Motors extends OpMode {
 
 
         //// Control the lift
+        hwcon.controlLift(controlPad.right_trigger - controlPad.left_trigger);
 
         /* ------ OLD LIFT CONTROL
         // New lift control
