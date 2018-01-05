@@ -6,7 +6,6 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cAddr;
 import com.qualcomm.robotcore.hardware.I2cDevice;
@@ -36,7 +35,8 @@ public class HardwareController {
     private DcMotor motorDriveLeftFront = null, motorDriveLeftRear = null;      // Left side mecanum motors
     private DcMotor motorDriveStrafe = null;    // Motor for strafing
 
-    private DcMotor motorLift = null;   // Motor for the lift
+    private DcMotor motorLiftLeft = null;   // Right motor for the lift
+    private DcMotor motorLiftRight = null;   // Left motor for the lift
 
     /* ------ OLD LIFT OBJECTS
     private DcMotor motorLiftInterior = null, motorLiftExterior = null;         // Lift motors
@@ -179,7 +179,11 @@ public class HardwareController {
             motorDriveStrafe.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
             // lift motor
-            motorLift = hardwareMap.get(DcMotor.class, "lift");
+            motorLiftLeft = hardwareMap.get(DcMotor.class, "liftleft");
+            motorLiftRight = hardwareMap.get(DcMotor.class, "liftright");
+
+            motorLiftLeft.setDirection(DcMotor.Direction.FORWARD);
+            motorLiftRight.setDirection(DcMotor.Direction.REVERSE);
 
             /* ------ INIT FOR OLD LIFT
             motorLiftInterior = hardwareMap.get(DcMotor.class, "liftint");
@@ -403,7 +407,8 @@ public class HardwareController {
     // Control the lift
     public void controlLift(double power) {
         try {
-            motorLift.setPower(power);
+            motorLiftLeft.setPower(power);
+            motorLiftRight.setPower(power);
         } catch (Exception ex) {
             controlErrorStatus = ControlError.Lift;
         }
