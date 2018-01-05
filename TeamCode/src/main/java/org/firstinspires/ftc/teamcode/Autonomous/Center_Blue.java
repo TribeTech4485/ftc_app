@@ -60,7 +60,7 @@ public class Center_Blue extends LinearOpMode {
         hwcon.updateSensorsAndTelmetry();
 
         // Put the arm down
-        hwcon.raiseLowerSensorArm(true);
+        //hwcon.raiseLowerSensorArm(true);
         while(hwcon.waitIterative(1500) && !isStopRequested());
         hwcon.raiseLowerArm(true);
         while(hwcon.waitIterative(1000) && !isStopRequested());
@@ -95,7 +95,7 @@ public class Center_Blue extends LinearOpMode {
         // Put the arm down
         hwcon.raiseLowerArm(false);
         while(hwcon.waitIterative(1000) && !isStopRequested());
-        hwcon.raiseLowerSensorArm(false);
+        //hwcon.raiseLowerSensorArm(false);
         while(hwcon.waitIterative(1500) && !isStopRequested());
 
         while(!hwcon.driveTimeIterative(400, 0, 0, -moveDirection));
