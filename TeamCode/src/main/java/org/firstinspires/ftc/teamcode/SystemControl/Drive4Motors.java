@@ -24,6 +24,8 @@ public class Drive4Motors extends OpMode {
         controlPad = gamepad2;
         hwcon = new HardwareController();
         hwcon.initHardware(hardwareMap, telemetry);
+
+        hwcon.moveArmStartPos();
     }
 
     @Override
@@ -33,7 +35,7 @@ public class Drive4Motors extends OpMode {
 
     @Override
     public void start() {
-
+        hwcon.raiseLowerArm(true);
     }
 
     private boolean gripperClosed = false;
@@ -42,7 +44,7 @@ public class Drive4Motors extends OpMode {
     private double lastLoopTime = -1;
     @Override
     public void loop() {
-
+        if (!hwcon.waitIterative(500)) hwcon.raiseLowerArm(false);
         double loopStart = System.currentTimeMillis();
 
         // move controls around if requested

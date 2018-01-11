@@ -22,7 +22,7 @@ public class ServoController extends OpMode {
     @Override
     public void init() {
         controlServo1 = hardwareMap.get(Servo.class, "ballarm");
-        controlServo2 = hardwareMap.get(Servo.class, "sensorarm");
+        controlServo2 = hardwareMap.get(Servo.class, "leftlowgrab");
     }
 
     @Override
