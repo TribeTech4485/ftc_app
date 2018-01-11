@@ -49,15 +49,15 @@ public class HardwareController {
     private static final double driveWheelDiameterInches = 4;   // Diameter of the wheels
 
     // Servos
-    private double leftLowerOpenPos = 0.65, leftLowerClosedPos = 0.10;
-    private double rightLowerOpenPos = 0.2, rightLowerClosedPos = 0.75;
-    private double leftUpperOpenPos = 0.2, leftUpperClosedPos = 0.75;
-    private double rightUpperOpenPos = 0.65, rightUpperClosedPos = 0.10;
+    private double leftLowerOpenPos = 0.13, leftLowerClosedPos = 0.89;
+    private double rightLowerOpenPos = 0.71, rightLowerClosedPos = 0.0;
+    private double leftUpperOpenPos = 0.0, leftUpperClosedPos = 0.66;
+    private double rightUpperOpenPos = 0.83, rightUpperClosedPos = 0.14;
     private double rightLowerGripPos = rightLowerOpenPos, leftLowerGripPos = leftLowerOpenPos;
     private double rightUpperGripPos = rightUpperOpenPos, leftUpperGripPos = leftUpperOpenPos;
     private Servo servoGripLeftLower = null, servoGripRightLower = null;
     private Servo servoGripLeftUpper = null, servoGripRightUpper = null;
-    private double armUpPos = 1.0, armDownPos = 0.1;
+    private double armUpPos = 0.3, armDownPos = 0.2, armStartPos = 0.4;
     private Servo servoBallArm = null;
     // Waving
     private double waveStartTime = -1;
@@ -559,6 +559,9 @@ public class HardwareController {
         } else {
             controlServo(servoBallArm, armUpPos);
         }
+    }
+    public void moveArmStartPos() {
+        controlServo(servoBallArm, armStartPos);
     }
 
     // Control specified servo and catch any errors
